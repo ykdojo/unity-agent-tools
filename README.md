@@ -15,6 +15,16 @@ When you iterate on a Unity game with an AI agent, the slow part is the human ro
 - `unity-shot.sh` - capture the Game view to `Temp/shot.png` (read it as an image).
 - `unity-speed.sh N` - set `Time.timeScale` (fast-forward or slow the running game; clamped to [0.1, 20]).
 
+## A layered way to test
+
+Driving the editor from the shell lets an agent verify its own work. Spend the least effort that still catches the bug - climb only when the cheaper layer can't see it:
+
+1. **Pure logic, no editor (cheapest).** Pull game math/decisions into plain, deterministic C# (pass `dt`/time in; no `Time.*` or transforms) and cover it with Unity Test Framework **EditMode** tests. Fastest, runs without Play mode; `unity-compile.sh` at least confirms it compiles.
+2. **Play mode + game state (mid).** Enter Play (`unity-play.sh`), fast-forward with `unity-speed.sh`, and assert on extracted state - positions, HP, counts - instead of pixels.
+3. **Screenshots (most expensive).** `unity-shot.sh` to look at the screen. Reserve for layout and visual effects - anything spatial that state can't capture.
+
+These tools cover layer 3 (and the Play/speed plumbing for layer 2); layers 1-2 are mostly a matter of how you structure your own code.
+
 ## Requirements
 
 - Unity with the editor open on your project.
