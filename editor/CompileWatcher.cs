@@ -14,6 +14,7 @@ using UnityEngine;
 ///   timestamp  — recompile, report "OK ..." or the list of CS errors
 ///   "play"     — recompile, then enter Play mode if clean
 ///   "stop"     — exit Play mode
+///   "replay"   — exit Play (if running), recompile, re-enter Play (one command)
 ///   "shot"     — capture the Game view to Temp/shot.png
 ///   "speed:N"  — set Time.timeScale to N (fast-forward / slow the running game)
 ///
@@ -35,6 +36,7 @@ public static class CompileWatcher
     static readonly string ResultPath = Path.Combine(TempDir, "compile-result.txt");
     static readonly string ShotPath = Path.Combine(TempDir, "shot.png");
     const string PlayKey = "CompileWatcher.PlayAfterCompile";
+    const string ReplayKey = "CompileWatcher.ReplayAfterStop";
 
     static FileSystemWatcher s_Watcher;
     static volatile bool s_Triggered;     // set from watcher thread
@@ -97,6 +99,19 @@ public static class CompileWatcher
                 EditorApplication.EnterPlaymode();
         }
 
+        // A "replay" request has exited Play; once the editor is idle again,
+        // recompile and re-enter Play. Survives the exit-play domain reload via
+        // SessionState, so it needs no external sleep between stop and play.
+        if (SessionState.GetBool(ReplayKey, false)
+            && !EditorApplication.isPlaying
+            && !EditorApplication.isCompiling && !EditorApplication.isUpdating)
+        {
+            SessionState.SetBool(ReplayKey, false);
+            s_PlayAfter = true;
+            BeginCompile();
+            return;
+        }
+
         if (s_Triggered && !s_Awaiting && !EditorApplication.isCompiling)
         {
             s_Triggered = false;
@@ -110,6 +125,22 @@ public static class CompileWatcher
             if (cmd == "shot")
             {
                 CaptureShot();
+                return;
+            }
+            if (cmd == "replay")
+            {
+                // Exit Play (if running), then OnUpdate recompiles + re-enters
+                // Play once idle. Lets one command do a fresh restart, no sleep.
+                if (EditorApplication.isPlaying)
+                {
+                    SessionState.SetBool(ReplayKey, true);
+                    EditorApplication.ExitPlaymode();
+                }
+                else
+                {
+                    s_PlayAfter = true;
+                    BeginCompile();
+                }
                 return;
             }
             if (cmd.StartsWith("speed:"))
