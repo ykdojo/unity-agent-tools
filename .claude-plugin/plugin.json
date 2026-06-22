@@ -1,0 +1,10 @@
+{
+  "name": "unity-agent-tools",
+  "description": "Drive an open Unity editor from the command line so an AI coding agent can compile, enter/exit Play mode, screenshot the Game view, and set time scale - no port, no manual clicking.",
+  "version": "0.1.0",
+  "author": {
+    "name": "YK"
+  },
+  "repository": "https://github.com/ykdojo/unity-agent-tools",
+  "keywords": ["unity", "gamedev", "ai-agent", "automation", "devtools", "screenshot"]
+}

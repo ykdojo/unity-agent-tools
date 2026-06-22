@@ -1,0 +1,14 @@
+{
+  "name": "ykdojo",
+  "owner": {
+    "name": "YK"
+  },
+  "plugins": [
+    {
+      "name": "unity-agent-tools",
+      "source": "./",
+      "description": "Drive an open Unity editor from the command line: compile, play/stop, screenshot, time scale - so an AI coding agent can iterate without clicking around.",
+      "version": "0.1.0"
+    }
+  ]
+}
