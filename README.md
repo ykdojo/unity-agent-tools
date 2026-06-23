@@ -25,6 +25,12 @@ Driving the editor from the shell lets an agent verify its own work. Spend the l
 
 These tools cover layer 3 (and the Play/speed plumbing for layer 2); layers 1-2 are mostly a matter of how you structure your own code.
 
+### Driving game state, and testing interactions
+
+`unity-speed.sh` (fast-forward, or `0.1` for a near-pause, to reach a state quickly) plus `unity-shot.sh` (observe) let an agent reach and inspect most states without touching the editor. What you **cannot** do headlessly is click UI or send keystrokes - there's no input injection.
+
+To exercise an *interaction* (a button click, a key handler), temporarily wire an **auto-trigger** in code: call the handler from a timed hook or a game event (e.g. "2s after game over, call `Retry()`"), verify the result with a screenshot, then remove the hook. A button's `onClick` wiring is trivial; the auto-trigger is for testing the logic it invokes.
+
 ## Requirements
 
 - Unity with the editor open on your project.
