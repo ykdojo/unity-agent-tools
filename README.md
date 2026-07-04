@@ -14,6 +14,7 @@ When you iterate on a Unity game with an AI agent, the slow part is the human ro
 - `unity-play.sh` / `unity-play.sh stop` - compile and enter Play mode if clean / exit Play mode.
 - `unity-shot.sh` - capture the Game view to `Temp/shot.png` (read it as an image).
 - `unity-speed.sh N` - set `Time.timeScale` (fast-forward or slow the running game; clamped to [0.1, 20]).
+- `unity-click.sh Btn_Name` - click a named UI Button in the running game (dispatched through the EventSystem - no screen coordinates, no window focus). A wrong name errors with the list of every Button in the scene. Requires `com.unity.ugui` (present in default templates).
 
 ## A layered way to test
 
@@ -27,9 +28,9 @@ These tools cover layer 3 (and the Play/speed plumbing for layer 2); layers 1-2 
 
 ### Driving game state, and testing interactions
 
-`unity-speed.sh` (fast-forward, or `0.1` for a near-pause, to reach a state quickly) plus `unity-shot.sh` (observe) let an agent reach and inspect most states without touching the editor. What you **cannot** do headlessly is click UI or send keystrokes - there's no input injection.
+`unity-speed.sh` (fast-forward, or `0.1` for a near-pause, to reach a state quickly), `unity-click.sh` (press buttons by name), and `unity-shot.sh` (observe) let an agent reach and inspect most states without touching the editor. What you **cannot** do headlessly is send keystrokes, drags, or clicks at arbitrary positions - there's no input injection.
 
-To exercise an *interaction* (a button click, a key handler), temporarily wire an **auto-trigger** in code: call the handler from a timed hook or a game event (e.g. "2s after game over, call `Retry()`"), verify the result with a screenshot, then remove the hook. A button's `onClick` wiring is trivial; the auto-trigger is for testing the logic it invokes.
+To exercise one of those *interactions* (a drag handler, a key handler), temporarily wire an **auto-trigger** in code: call the handler from a timed hook or a game event (e.g. "2s after game over, call `Retry()`"), verify the result with a screenshot, then remove the hook.
 
 ## Requirements
 
@@ -66,6 +67,7 @@ bash tools/unity-play.sh           # compile, then enter Play if clean
 bash tools/unity-speed.sh 5        # 5x fast-forward
 bash tools/unity-shot.sh           # screenshot Game view -> Temp/shot.png
 bash tools/unity-speed.sh 1        # back to normal
+bash tools/unity-click.sh Btn_Retry  # click a named UI Button
 bash tools/unity-play.sh stop      # exit Play
 ```
 
@@ -80,8 +82,10 @@ The scripts auto-detect the project when run from inside it. From elsewhere, set
 | a timestamp | recompile, report `OK` / CS errors |
 | `play` | recompile, then enter Play mode if clean |
 | `stop` | exit Play mode |
+| `replay` | exit Play (if running), recompile, re-enter Play |
 | `shot` | capture the Game view to `Temp/shot.png` |
 | `speed:N` | set `Time.timeScale` to N |
+| `click:Name` | click the named UI Button (Play mode; active + interactable only) |
 
 Entering Play triggers a domain reload that wipes the watcher's static state, so the "enter Play after a clean compile" intent is stashed in `SessionState`.
 
@@ -98,6 +102,7 @@ Run the offline smoke test any time with `bash test.sh`.
 - `install.sh` file copying and project auto-detection
 - compile (clean and error-reporting), play, refusing to play when there are compile errors, stop
 - screenshot (a real frame captured while Unity was unfocused) and time scale
+- named-button clicks (`unity-click.sh`): full start → pause → resume → exit flows, plus both error paths (unknown name lists the scene's buttons; inactive button refused)
 - `CompileWatcher.cs` compiles cleanly in a real editor
 
 **Not yet verified** (help welcome):
