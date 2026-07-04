@@ -25,7 +25,13 @@ Run the user's Unity game and observe it, using the unity-agent-tools scripts (i
    ```
    Then read that PNG as an image. For a fleeting moment, take a burst of shots ~0.5s apart and review the frames that caught it.
 
-4. **Stop when done:**
+4. **Click UI buttons by name** (menus, retry, pause - anything button-driven):
+   ```bash
+   bash tools/unity-click.sh Btn_Retry   # the Button's GameObject name, case-sensitive
+   ```
+   A wrong name errors with the list of every Button in the scene, so you can discover names by guessing once. Only active + interactable buttons respond. Prefer this over coordinate-based clicking; for drags and keystrokes use a temporary auto-trigger instead.
+
+5. **Stop when done:**
    ```bash
    bash tools/unity-play.sh stop
    ```

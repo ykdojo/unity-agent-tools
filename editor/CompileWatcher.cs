@@ -11,15 +11,16 @@ using UnityEngine;
 /// editor without a port or auth. It watches Temp/compile-request and acts on the
 /// file's *content*, writing results to Temp/compile-result.txt (or Temp/shot.png).
 ///
-///   timestamp  — recompile, report "OK ..." or the list of CS errors
-///   "play"     — recompile, then enter Play mode if clean
-///   "stop"     — exit Play mode
-///   "replay"   — exit Play (if running), recompile, re-enter Play (one command)
-///   "shot"     — capture the Game view to Temp/shot.png
-///   "speed:N"  — set Time.timeScale to N (fast-forward / slow the running game)
+///   timestamp    — recompile, report "OK ..." or the list of CS errors
+///   "play"       — recompile, then enter Play mode if clean
+///   "stop"       — exit Play mode
+///   "replay"     — exit Play (if running), recompile, re-enter Play (one command)
+///   "shot"       — capture the Game view to Temp/shot.png
+///   "speed:N"    — set Time.timeScale to N (fast-forward / slow the running game)
+///   "click:Name" — click the named UI Button in the running game (Play mode)
 ///
 /// The companion shell scripts (unity-compile.sh, unity-play.sh, unity-shot.sh,
-/// unity-speed.sh) just write these and poll for the result.
+/// unity-speed.sh, unity-click.sh) just write these and poll for the result.
 ///
 /// Two prerequisites for headless use while the editor is unfocused:
 ///   1. Settings > General > Interaction Mode = No Throttling (so the editor
@@ -115,7 +116,8 @@ public static class CompileWatcher
         if (s_Triggered && !s_Awaiting && !EditorApplication.isCompiling)
         {
             s_Triggered = false;
-            string cmd = ReadCommand();
+            string raw = ReadCommand();
+            string cmd = raw.ToLowerInvariant();
             if (cmd == "stop")
             {
                 if (EditorApplication.isPlaying) EditorApplication.ExitPlaymode();
@@ -146,6 +148,11 @@ public static class CompileWatcher
             if (cmd.StartsWith("speed:"))
             {
                 SetSpeed(cmd.Substring(6));
+                return;
+            }
+            if (cmd.StartsWith("click:"))
+            {
+                ClickUI(raw.Substring(6).Trim()); // raw: names are case-sensitive
                 return;
             }
             s_PlayAfter = (cmd == "play");
@@ -223,7 +230,7 @@ public static class CompileWatcher
 
     static string ReadCommand()
     {
-        try { return File.Exists(RequestPath) ? File.ReadAllText(RequestPath).Trim().ToLowerInvariant() : ""; }
+        try { return File.Exists(RequestPath) ? File.ReadAllText(RequestPath).Trim() : ""; }
         catch { return ""; }
     }
 
@@ -245,6 +252,54 @@ public static class CompileWatcher
         Time.timeScale = scale;
         try { File.WriteAllText(ResultPath, $"OK (timeScale={scale})\n"); }
         catch (Exception e) { Debug.LogError($"[CompileWatcher] write failed: {e.Message}"); }
+    }
+
+    // Click a UI Button by GameObject name (e.g. "click:Btn_Exit") by dispatching
+    // a pointer-click through the event system - no screen coordinates, no window
+    // focus. Only active, interactable buttons are clickable, matching what a
+    // real user could press. Requires the com.unity.ugui package (present in
+    // default project templates).
+    static void ClickUI(string name)
+    {
+        string msg;
+        if (!EditorApplication.isPlaying)
+            msg = "ERROR: not in play mode";
+        else
+        {
+            // Two-arg overload on purpose: it exists from 2021.3 through current
+            // Unity. The warning-free one-arg overload is 6000.5+ only - using it
+            // would break older editors (it broke a 6000.3 project once).
+            var buttons = UnityEngine.Object.FindObjectsByType<UnityEngine.UI.Button>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None);
+            UnityEngine.UI.Button target = null;
+            int matches = 0;
+            foreach (var b in buttons)
+                if (b.gameObject.name == name) { matches++; if (target == null) target = b; }
+
+            if (target == null)
+            {
+                var names = new List<string>();
+                foreach (var b in buttons) names.Add(b.gameObject.name);
+                names.Sort();
+                msg = $"ERROR: no Button named '{name}'. Buttons: {string.Join(", ", names)}";
+            }
+            else if (!target.gameObject.activeInHierarchy)
+                msg = $"ERROR: '{name}' exists but is inactive";
+            else if (!target.interactable)
+                msg = $"ERROR: '{name}' is not interactable";
+            else
+            {
+                var ev = new UnityEngine.EventSystems.PointerEventData(
+                    UnityEngine.EventSystems.EventSystem.current);
+                UnityEngine.EventSystems.ExecuteEvents.Execute(target.gameObject, ev,
+                    UnityEngine.EventSystems.ExecuteEvents.pointerClickHandler);
+                msg = matches > 1
+                    ? $"OK (clicked '{name}'; {matches} matches, used first)"
+                    : $"OK (clicked '{name}')";
+            }
+        }
+        try { File.WriteAllText(ResultPath, msg + "\n"); }
+        catch (Exception e) { Debug.LogError($"[CompileWatcher] click failed: {e.Message}"); }
     }
 
     // Capture the Game view to Temp/shot.png. The file is written a frame later,
